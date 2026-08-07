@@ -2,7 +2,7 @@
 
 Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana,
 Zapote, Tres Ríos y Cartago, y te avisa por email (Gmail) y
-Telegram solo cuando pasa de "agotado" a "disponible" (no en cada corrida).
+Telegram en cada corrida donde encuentre stock en alguna de esas tiendas.
 
 Con una sola llamada a la API basta: la respuesta trae la disponibilidad
 de las ~60 tiendas de PriceSmart en la región de una vez, así que el
@@ -27,9 +27,20 @@ tardó). Además guarda la respuesta cruda completa de cada corrida en
    source venv/bin/activate   # en Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-3. Exporta las variables de notificación (opcional — si las omites, el
-   script sigue corriendo y solo te avisa en consola/log que se saltó el
-   envío):
+3. Configura las variables de notificación. Hay dos formas (opcional —
+   si las omites, el script sigue corriendo y solo te avisa en
+   consola/log que se saltó el envío):
+
+   **Opción A — archivo `.env` (recomendada, no hay que repetirlo cada vez):**
+   ```bash
+   cp .env.example .env
+   ```
+   Abre `.env` con cualquier editor y reemplaza los valores de ejemplo
+   por los tuyos. El script lo carga automáticamente al arrancar.
+   `.env` ya está en `.gitignore`, así que nunca se sube al repo por
+   accidente.
+
+   **Opción B — exportarlas en la terminal (se pierden al cerrarla):**
    ```bash
    export GMAIL_USER="tucorreo@gmail.com"
    export GMAIL_APP_PASSWORD="xxxxxxxxxxxxxxxx"
@@ -130,12 +141,17 @@ workflow** (botón manual, gracias a `workflow_dispatch`). Revisa el log:
   PriceSmart; pégame el JSON crudo que aparece en el log y ajusto el
   script.
 
-## Cómo funciona el "no repetir avisos"
+## Sobre las notificaciones repetidas
 
-El script guarda el último estado conocido en `state.json` dentro del
-mismo repo (el workflow lo hace commit automáticamente). Solo te notifica
-cuando una tienda pasa de `false` a `true`, así no te bombardea cada 2
-horas mientras siga disponible.
+El script ya no guarda estado entre corridas: te avisa **cada vez** que
+encuentra stock en alguna tienda, sin importar si ya te había avisado en
+la corrida anterior. Como el producto se agota rápido (1–2 días), esto
+es intencional — así te enteras en cada ventana de 2 horas mientras siga
+disponible, en vez de solo una vez al aparecer.
+
+Si en algún momento quieres volver al comportamiento de "solo avisar una
+vez por cambio de agotado a disponible", dime y te devuelvo la lógica de
+`state.json`.
 
 ## Ajustar la frecuencia
 

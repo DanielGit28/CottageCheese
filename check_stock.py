@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
 Chequea disponibilidad del queso cottage Breakstone's (SKU 258130) en
-PriceSmart Costa Rica para Escazú, Santa Ana y Zapote, y notifica por
-email (Gmail) solo cuando pasa de "no disponible" a "disponible".
+PriceSmart Costa Rica para varias tiendas, y notifica por email (Gmail)
+y Telegram cada vez que encuentra stock disponible en alguna.
 
 Una sola llamada a la API trae la disponibilidad de TODAS las tiendas
 (60 sucursales en varios países), así que solo filtramos las que nos
 interesan por su código de tienda ("key").
-
-Guarda el último estado conocido en state.json para no repetir avisos.
 """
 
 import json
@@ -48,7 +46,6 @@ PRODUCT_URL = (
     "breakstones-cottage-cheese-680-g-1-5-lb-258130/258130"
 )
 API_URL = "https://www.pricesmart.com/api/ct/getProduct"
-STATE_FILE = Path(__file__).parent / "state.json"
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -154,16 +151,6 @@ def get_channel_availability(data: dict) -> dict:
     return by_key
 
 
-def load_state() -> dict:
-    if STATE_FILE.exists():
-        return json.loads(STATE_FILE.read_text())
-    return {}
-
-
-def save_state(state: dict):
-    STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False))
-
-
 def send_email(subject: str, body: str):
     user = os.environ.get("GMAIL_USER")
     password = os.environ.get("GMAIL_APP_PASSWORD")
@@ -225,8 +212,7 @@ def main():
         logger.debug(json.dumps(data, indent=2, ensure_ascii=False)[:4000])
         return
 
-    state = load_state()
-    newly_available = []
+    stores_with_stock = []
 
     for store, key in STORES.items():
         info = by_key.get(key)
@@ -236,22 +222,17 @@ def main():
 
         available = info["isOnStock"]
         qty = info["availableQuantity"]
-        was_available = state.get(store, False)
         status = f"✅ disponible ({qty} unid.)" if available else "❌ agotado"
         logger.info("%s: %s", store, status)
 
-        if available and not was_available:
-            newly_available.append(store)
+        if available:
+            stores_with_stock.append(store)
 
-        state[store] = available
-
-    save_state(state)
-
-    if newly_available:
-        logger.info("🔔 Notificando cambio a disponible en: %s", newly_available)
-        notify(newly_available)
+    if stores_with_stock:
+        logger.info("🔔 Notificando disponibilidad en: %s", stores_with_stock)
+        notify(stores_with_stock)
     else:
-        logger.info("Sin cambios que notificar.")
+        logger.info("Nada disponible en esta corrida, no se notifica.")
 
 
 if __name__ == "__main__":
