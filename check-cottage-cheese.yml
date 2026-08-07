@@ -26,9 +26,6 @@ jobs:
 
       - name: Run stock check
         env:
-          CHANNEL_ESCAZU: ${{ secrets.CHANNEL_ESCAZU }}
-          CHANNEL_SANTA_ANA: ${{ secrets.CHANNEL_SANTA_ANA }}
-          CHANNEL_ZAPOTE: ${{ secrets.CHANNEL_ZAPOTE }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}

@@ -2,16 +2,18 @@
 """
 Chequea disponibilidad del queso cottage Breakstone's (SKU 258130) en
 PriceSmart Costa Rica para Escazú, Santa Ana y Zapote, y notifica por
-email cuando pasa de "no disponible" a "disponible".
+email (Gmail) solo cuando pasa de "no disponible" a "disponible".
+
+Una sola llamada a la API trae la disponibilidad de TODAS las tiendas
+(60 sucursales en varios países), así que solo filtramos las que nos
+interesan por su código de tienda ("key").
 
 Guarda el último estado conocido en state.json para no repetir avisos.
 """
 
 import json
 import os
-import re
 import smtplib
-import sys
 from email.mime.text import MIMEText
 from pathlib import Path
 
@@ -25,13 +27,17 @@ PRODUCT_URL = (
 API_URL = "https://www.pricesmart.com/api/ct/getProduct"
 STATE_FILE = Path(__file__).parent / "state.json"
 
-# channelId de cada tienda -> se obtienen inspeccionando la pestaña Network
-# del navegador con cada tienda seleccionada en el sitio (ver README.md)
+# Códigos de tienda (channel "key") confirmados desde la respuesta real de
+# la API. No hace falta capturarlos manualmente.
 STORES = {
-    "Escazú": os.environ.get("CHANNEL_ESCAZU", ""),
-    "Santa Ana": os.environ.get("CHANNEL_SANTA_ANA", ""),
-    "Zapote": os.environ.get("CHANNEL_ZAPOTE", ""),
+    "Escazú": "6402",
+    "Santa Ana": "6407",
+    "Zapote": "6401",
 }
+
+# Cualquier channelId válido sirve como "metadata" del request; la API
+# igual devuelve la disponibilidad de las ~60 tiendas. Usamos el de Escazú.
+ANY_CHANNEL_ID = "bafd6a6d-a619-4a39-bf47-fa4e1bf09770"
 
 HEADERS = {
     "Content-Type": "application/json",
@@ -45,12 +51,12 @@ HEADERS = {
 }
 
 
-def fetch_store_data(channel_id: str) -> dict:
+def fetch_product_data() -> dict:
     payload = [
         {"skus": [SKU]},
         {
             "products": "getProductBySKU",
-            "metadata": {"channelId": channel_id},
+            "metadata": {"channelId": ANY_CHANNEL_ID},
         },
     ]
     resp = requests.post(API_URL, json=payload, headers=HEADERS, timeout=25)
@@ -58,53 +64,27 @@ def fetch_store_data(channel_id: str) -> dict:
     return resp.json()
 
 
-def find_stock_signals(node, path="root"):
+def get_channel_availability(data: dict) -> dict:
     """
-    Recorre el JSON de forma recursiva buscando cualquier campo típico
-    de disponibilidad (isOnStock, inStock, availableQuantity, etc).
-    Devuelve una lista de (path, dict_encontrado) para depuración y
-    para decidir si hay stock.
+    Devuelve {channel_key: {"isOnStock": bool, "availableQuantity": int}}
+    a partir de la respuesta completa de la API.
     """
-    found = []
-    keys_of_interest = {
-        "isOnStock",
-        "inStock",
-        "availableQuantity",
-        "availableForOrder",
-        "quantityOnStock",
-    }
-    if isinstance(node, dict):
-        if keys_of_interest & node.keys():
-            found.append((path, node))
-        for k, v in node.items():
-            found.extend(find_stock_signals(v, f"{path}.{k}"))
-    elif isinstance(node, list):
-        for i, v in enumerate(node):
-            found.extend(find_stock_signals(v, f"{path}[{i}]"))
-    return found
+    try:
+        results = data["data"]["products"]["results"]
+        variant = results[0]["masterData"]["current"]["masterVariant"]
+        channels = variant["availability"]["channels"]["results"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise ValueError(f"Estructura de respuesta inesperada: {e}")
 
-
-def is_available(data) -> tuple:
-    """
-    Devuelve (disponible: bool|None, señales_crudas: list).
-    None significa "no pude interpretarlo, revisa el JSON crudo".
-    """
-    signals = find_stock_signals(data)
-    if not signals:
-        return None, signals
-
-    for _, sig in signals:
-        if sig.get("isOnStock") is True:
-            return True, signals
-        if sig.get("inStock") is True:
-            return True, signals
-        qty = sig.get("availableQuantity") or sig.get("quantityOnStock")
-        if isinstance(qty, (int, float)) and qty > 0:
-            return True, signals
-        if sig.get("availableForOrder") is True:
-            return True, signals
-
-    return False, signals
+    by_key = {}
+    for entry in channels:
+        key = entry["channel"]["key"]
+        avail = entry["availability"]
+        by_key[key] = {
+            "isOnStock": avail.get("isOnStock", False),
+            "availableQuantity": avail.get("availableQuantity", 0),
+        }
+    return by_key
 
 
 def load_state() -> dict:
@@ -145,37 +125,33 @@ def notify(available_stores: list):
 
 
 def main():
-    missing = [name for name, cid in STORES.items() if not cid]
-    if missing:
-        print(
-            "⚠️  No hay channelId configurado para: "
-            + ", ".join(missing)
-            + ". Revisa el README para obtenerlo."
-        )
+    try:
+        data = fetch_product_data()
+    except requests.RequestException as e:
+        print(f"❌ Error consultando la API: {e}")
+        return
+
+    try:
+        by_key = get_channel_availability(data)
+    except ValueError as e:
+        print(f"❓ {e}")
+        print("JSON crudo (primeros 4000 caracteres):")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:4000])
+        return
 
     state = load_state()
     newly_available = []
-    results = {}
 
-    for store, channel_id in STORES.items():
-        if not channel_id:
-            continue
-        try:
-            data = fetch_store_data(channel_id)
-        except requests.RequestException as e:
-            print(f"❌ Error consultando {store}: {e}")
+    for store, key in STORES.items():
+        info = by_key.get(key)
+        if info is None:
+            print(f"⚠️  No se encontró la tienda {store} (key {key}) en la respuesta.")
             continue
 
-        available, signals = is_available(data)
-        results[store] = available
-
-        if available is None:
-            print(f"❓ {store}: no pude interpretar la respuesta. JSON crudo:")
-            print(json.dumps(data, indent=2, ensure_ascii=False)[:4000])
-            continue
-
+        available = info["isOnStock"]
+        qty = info["availableQuantity"]
         was_available = state.get(store, False)
-        status = "✅ disponible" if available else "❌ agotado"
+        status = f"✅ disponible ({qty} unid.)" if available else "❌ agotado"
         print(f"{store}: {status}")
 
         if available and not was_available:

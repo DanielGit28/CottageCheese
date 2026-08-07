@@ -1,8 +1,13 @@
 # Notificador de stock: queso cottage Breakstone's en PriceSmart CR
 
-Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana
-o Zapote, y te avisa por email (Gmail) solo cuando pasa de "agotado" a
+Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana o
+Zapote, y te avisa por email (Gmail) solo cuando pasa de "agotado" a
 "disponible" (no en cada corrida).
+
+Con una sola llamada a la API basta: la respuesta trae la disponibilidad
+de las ~60 tiendas de PriceSmart en la región de una vez, así que el
+script simplemente filtra Escazú (`6402`), Santa Ana (`6407`) y Zapote
+(`6401`) de esa respuesta.
 
 ## ⚠️ Antes de empezar
 
@@ -16,66 +21,45 @@ no lo satures.
 ## 1. Crea el repositorio
 
 1. Crea un repo nuevo en GitHub (puede ser privado).
-2. Sube estos 3 archivos:
+2. Sube estos 2 archivos:
    - `check_stock.py` → en la raíz del repo
    - `check-cottage-cheese.yml` → dentro de la carpeta `.github/workflows/`
    - (no subas `README.md` si no quieres, es solo para vos)
 
-## 2. Consigue el `channelId` de cada tienda
-
-El `channelId` que capturaste (`bafd6a6d-a619-4a39-bf47-fa4e1bf09770`)
-corresponde a la tienda que tenías seleccionada en el navegador en ese
-momento — probablemente no sirve para las 3 sucursales. Necesitas uno por
-tienda:
-
-1. Abre la página del producto en Chrome/Edge.
-2. Abre DevTools (F12) → pestaña **Network** → filtra por `getProduct`.
-3. En el sitio, cambia la tienda seleccionada a **Escazú** (normalmente
-   hay un selector de tienda/sucursal en la parte superior del sitio).
-4. Recarga la página del producto y busca la llamada a
-   `api/ct/getProduct` en Network → pestaña **Payload/Request** → copia el
-   valor de `metadata.channelId`.
-5. Repite cambiando la tienda a **Santa Ana** y luego a **Zapote**.
-
-Vas a terminar con 3 UUIDs distintos.
-
-## 3. Configura los "Secrets" del repo
+## 2. Configura los "Secrets" del repo
 
 En GitHub: `Settings → Secrets and variables → Actions → New repository secret`.
 Crea estos:
 
 | Secret | Valor |
 |---|---|
-| `CHANNEL_ESCAZU` | UUID de Escazú |
-| `CHANNEL_SANTA_ANA` | UUID de Santa Ana |
-| `CHANNEL_ZAPOTE` | UUID de Zapote |
 | `GMAIL_USER` | tu correo de Gmail |
-| `GMAIL_APP_PASSWORD` | ver paso 4 |
+| `GMAIL_APP_PASSWORD` | ver paso 3 |
 | `EMAIL_TO` | correo donde quieres recibir el aviso |
 
-## 4. Crea un "App Password" de Gmail (para el email)
+## 3. Crea un "App Password" de Gmail
 
 1. Activa verificación en 2 pasos en tu cuenta de Google, si no la tienes.
 2. Ve a https://myaccount.google.com/apppasswords
 3. Genera una contraseña de aplicación (16 caracteres) y úsala como
    `GMAIL_APP_PASSWORD` (no tu contraseña normal).
 
-## 5. Prueba manual
+## 4. Prueba manual
 
 En GitHub → pestaña **Actions** → selecciona el workflow → **Run
 workflow** (botón manual, gracias a `workflow_dispatch`). Revisa el log:
 
-- Si ves `❓ no pude interpretar la respuesta` con un JSON crudo debajo,
-  pégamelo en el chat y ajusto la función `is_available()` del script
-  para que lea el campo correcto de disponibilidad.
-- Si todo va bien, verás `✅ disponible` o `❌ agotado` por cada tienda.
+- Si ves `✅ disponible` o `❌ agotado` por cada tienda, todo funciona.
+- Si ves `❓ Estructura de respuesta inesperada`, algo cambió en la API de
+  PriceSmart; pégame el JSON crudo que aparece en el log y ajusto el
+  script.
 
 ## Cómo funciona el "no repetir avisos"
 
 El script guarda el último estado conocido en `state.json` dentro del
 mismo repo (el workflow lo hace commit automáticamente). Solo te notifica
-cuando una tienda pasa de `false` a `true`, así no te bombardea cada 20
-minutos mientras siga disponible.
+cuando una tienda pasa de `false` a `true`, así no te bombardea cada 2
+horas mientras siga disponible.
 
 ## Ajustar la frecuencia
 
