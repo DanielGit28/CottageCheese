@@ -1,13 +1,71 @@
 # Notificador de stock: queso cottage Breakstone's en PriceSmart CR
 
-Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana o
-Zapote, y te avisa por email (Gmail) y Telegram solo cuando pasa de
-"agotado" a "disponible" (no en cada corrida).
+Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana,
+Zapote, Tres Ríos y Cartago, y te avisa por email (Gmail) y
+Telegram solo cuando pasa de "agotado" a "disponible" (no en cada corrida).
 
 Con una sola llamada a la API basta: la respuesta trae la disponibilidad
 de las ~60 tiendas de PriceSmart en la región de una vez, así que el
-script simplemente filtra Escazú (`6402`), Santa Ana (`6407`) y Zapote
-(`6401`) de esa respuesta.
+script simplemente filtra las tiendas que te interesan de esa respuesta.
+
+## Correrlo localmente (con logs)
+
+El script ya trae logging integrado: en consola muestra un resumen, y
+en `logs/check_stock.log` queda el detalle completo de cada llamada a la
+API (payload enviado, status code, headers de respuesta, tiempo que
+tardó). Además guarda la respuesta cruda completa de cada corrida en
+`logs/response_<fecha>_<hora>.json`, por si quieres revisarla con calma.
+
+1. Clona el repo y entra a la carpeta:
+   ```bash
+   git clone https://github.com/DanielGit28/CottageCheese.git
+   cd CottageCheese
+   ```
+2. Crea un entorno virtual e instala la dependencia:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate   # en Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+3. Exporta las variables de notificación (opcional — si las omites, el
+   script sigue corriendo y solo te avisa en consola/log que se saltó el
+   envío):
+   ```bash
+   export GMAIL_USER="tucorreo@gmail.com"
+   export GMAIL_APP_PASSWORD="xxxxxxxxxxxxxxxx"
+   export EMAIL_TO="tucorreo@gmail.com"
+   export TELEGRAM_BOT_TOKEN="123456789:AAExxxxx..."
+   export TELEGRAM_CHAT_ID="970504617"
+   ```
+   En Windows (PowerShell) es `$env:GMAIL_USER="..."` en vez de `export`.
+4. Corre el script:
+   ```bash
+   python3 check_stock.py
+   ```
+5. Revisa el log detallado:
+   ```bash
+   cat logs/check_stock.log
+   ```
+   O el JSON crudo de la última respuesta:
+   ```bash
+   ls logs/
+   cat logs/response_20260807_153000.json | python3 -m json.tool | less
+   ```
+
+Si vas a dejarlo corriendo local en vez de en GitHub Actions, tendrías
+que programarlo tú mismo (ej. con `cron` en Mac/Linux, o el Programador
+de tareas en Windows) para que se ejecute cada 2 horas — GitHub Actions
+ya hace eso automáticamente, así que lo local es principalmente útil
+para probar y depurar.
+
+> **Nota:** la carpeta `logs/` está en `.gitignore` a propósito — no se
+> sube al repo. Cuando corre en GitHub Actions, esos archivos solo viven
+> dentro de esa ejecución puntual (los ves en la pestaña **Actions** →
+> esa corrida → el output de "Run stock check"); no se acumulan entre
+> corridas. Si quieres conservarlos entre corridas de Actions, se puede
+> subir la carpeta como "artifact" — avísame si quieres que lo agregue.
+
+## Desplegarlo en GitHub Actions (automático, gratis, en la nube)
 
 ## ⚠️ Antes de empezar
 
