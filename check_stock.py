@@ -114,6 +114,22 @@ def send_email(subject: str, body: str):
     print("📧 Email enviado.")
 
 
+def send_telegram(text: str):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not (token and chat_id):
+        print("⚠️  Faltan variables de Telegram, se omite el mensaje.")
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    resp = requests.post(
+        url, data={"chat_id": chat_id, "text": text}, timeout=20
+    )
+    if resp.status_code >= 300:
+        print(f"⚠️  Error enviando Telegram: {resp.status_code} {resp.text}")
+    else:
+        print("📲 Telegram enviado.")
+
+
 def notify(available_stores: list):
     subject = "🧀 ¡Queso cottage disponible en PriceSmart!"
     stores_txt = ", ".join(available_stores)
@@ -122,6 +138,7 @@ def notify(available_stores: list):
         f"{stores_txt}.\n\n{PRODUCT_URL}"
     )
     send_email(subject, body)
+    send_telegram(body)
 
 
 def main():

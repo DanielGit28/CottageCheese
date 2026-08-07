@@ -1,8 +1,8 @@
 # Notificador de stock: queso cottage Breakstone's en PriceSmart CR
 
 Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana o
-Zapote, y te avisa por email (Gmail) solo cuando pasa de "agotado" a
-"disponible" (no en cada corrida).
+Zapote, y te avisa por email (Gmail) y Telegram solo cuando pasa de
+"agotado" a "disponible" (no en cada corrida).
 
 Con una sola llamada a la API basta: la respuesta trae la disponibilidad
 de las ~60 tiendas de PriceSmart en la región de una vez, así que el
@@ -36,6 +36,8 @@ Crea estos:
 | `GMAIL_USER` | tu correo de Gmail |
 | `GMAIL_APP_PASSWORD` | ver paso 3 |
 | `EMAIL_TO` | correo donde quieres recibir el aviso |
+| `TELEGRAM_BOT_TOKEN` | ver paso 3.5 |
+| `TELEGRAM_CHAT_ID` | ver paso 3.5 |
 
 ## 3. Crea un "App Password" de Gmail
 
@@ -43,6 +45,22 @@ Crea estos:
 2. Ve a https://myaccount.google.com/apppasswords
 3. Genera una contraseña de aplicación (16 caracteres) y úsala como
    `GMAIL_APP_PASSWORD` (no tu contraseña normal).
+
+## 3.5. Crea un bot de Telegram (opcional pero recomendado)
+
+1. En Telegram, busca **@BotFather** y mándale `/newbot`. Ponle un nombre
+   y un username (tiene que terminar en "bot", ej. `cottage_stock_bot`).
+2. BotFather te va a dar un **token** como `123456789:AAExxxxx...` — ese
+   es tu `TELEGRAM_BOT_TOKEN`.
+3. Abre un chat con tu bot recién creado y mándale cualquier mensaje
+   (ej. "hola") para que te "conozca".
+4. Abre en el navegador:
+   `https://api.telegram.org/bot<TU_TOKEN>/getUpdates`
+   (reemplaza `<TU_TOKEN>` por el token real). Ahí vas a ver un JSON con
+   `"chat":{"id":123456789,...}` — ese número es tu `TELEGRAM_CHAT_ID`.
+
+Si no quieres usar Telegram, puedes dejar esas 2 variables vacías: el
+script simplemente se salta el mensaje y solo manda email.
 
 ## 4. Prueba manual
 
