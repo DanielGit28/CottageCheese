@@ -1,0 +1,43 @@
+name: Check PriceSmart Cottage Cheese Stock
+
+on:
+  schedule:
+    # Cada 2 horas.
+    - cron: "0 */2 * * *"
+  workflow_dispatch: {} # permite correrlo manualmente desde la pestaña Actions
+
+permissions:
+  contents: write # necesario para poder guardar state.json de vuelta al repo
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run stock check
+        env:
+          CHANNEL_ESCAZU: ${{ secrets.CHANNEL_ESCAZU }}
+          CHANNEL_SANTA_ANA: ${{ secrets.CHANNEL_SANTA_ANA }}
+          CHANNEL_ZAPOTE: ${{ secrets.CHANNEL_ZAPOTE }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python check_stock.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "stock-bot"
+          git config user.email "stock-bot@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "Update stock state [skip ci]"
+          git push
