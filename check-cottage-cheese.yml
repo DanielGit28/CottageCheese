@@ -4,7 +4,7 @@ on:
   schedule:
     # Cada 2 horas.
     - cron: "0 */2 * * *"
-  workflow_dispatch: {} # permite correrlo manualmente desde la pestaña Actions
+  workflow_dispatch: {} # permite correrlo manualmente desde la pestaña Actions -> new workflow
 
 permissions:
   contents: write # necesario para poder guardar state.json de vuelta al repo
