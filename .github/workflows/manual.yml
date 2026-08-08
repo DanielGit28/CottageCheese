@@ -2,9 +2,9 @@ name: Check PriceSmart Cottage Cheese Stock
 
 on:
   schedule:
-    # Cada 2 horas.
-    - cron: "0 */2 * * *"
-  workflow_dispatch: {} # permite correrlo manualmente desde la pestaña Actions
+    # Once a day at 8:00 am Costa Rica time (UTC-6) = 14:00 UTC.
+    - cron: "0 14 * * *"
+  workflow_dispatch: {} # allows manual runs from the Actions tab
 
 jobs:
   check-stock:

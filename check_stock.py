@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Chequea disponibilidad del queso cottage Breakstone's (SKU 258130) en
-PriceSmart Costa Rica para varias tiendas, y notifica por email (Gmail)
-y Telegram cada vez que encuentra stock disponible en alguna.
+Checks availability of Breakstone's cottage cheese (SKU 258130) at
+PriceSmart Costa Rica across several stores, and notifies by email
+(Gmail) and Telegram every time it finds stock available at any of them.
 
-Una sola llamada a la API trae la disponibilidad de TODAS las tiendas
-(60 sucursales en varios países), así que solo filtramos las que nos
-interesan por su código de tienda ("key").
+A single API call returns availability for ALL stores (60 locations
+across several countries), so we just filter the ones we care about by
+their store code ("key").
 """
 
 import json
@@ -19,8 +19,8 @@ from pathlib import Path
 
 import requests
 
-# Carga variables desde un archivo .env si existe (solo afecta uso local;
-# en GitHub Actions las variables ya vienen inyectadas como secrets).
+# Load variables from a .env file if present (local use only; on GitHub
+# Actions the variables are already injected as secrets).
 _DOTENV_STATUS = None
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -28,16 +28,16 @@ try:
     _dotenv_path = find_dotenv(usecwd=True)
     if _dotenv_path:
         load_dotenv(_dotenv_path, override=True)
-        _DOTENV_STATUS = f"Cargado .env desde: {_dotenv_path}"
+        _DOTENV_STATUS = f"Loaded .env from: {_dotenv_path}"
     else:
         _DOTENV_STATUS = (
-            "No se encontró un archivo .env en el directorio actual "
-            f"({os.getcwd()}) ni en sus carpetas padre."
+            "No .env file found in the current directory "
+            f"({os.getcwd()}) or any parent directory."
         )
 except ImportError:
     _DOTENV_STATUS = (
-        "python-dotenv no está instalado — el .env NO se está cargando. "
-        "Instálalo con: pip install python-dotenv"
+        "python-dotenv is not installed — .env is NOT being loaded. "
+        "Install it with: pip install python-dotenv"
     )
 
 SKU = "258130"
@@ -49,8 +49,8 @@ API_URL = "https://www.pricesmart.com/api/ct/getProduct"
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-# Logger para consola (nivel INFO) y para el archivo de log (nivel DEBUG,
-# incluye el detalle de cada llamada a la API).
+# Logger for console output (INFO level) and for the log file (DEBUG
+# level, includes the full detail of every API call).
 logger = logging.getLogger("check_stock")
 logger.setLevel(logging.DEBUG)
 
@@ -59,7 +59,8 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(console_handler)
 
-file_handler = logging.FileHandler(LOG_DIR / "check_stock.log", encoding="utf-8")
+file_handler = logging.FileHandler(
+    LOG_DIR / "check_stock.log", encoding="utf-8")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(
     logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
@@ -68,18 +69,19 @@ logger.addHandler(file_handler)
 
 logger.info(_DOTENV_STATUS)
 
-# Códigos de tienda (channel "key") confirmados desde la respuesta real de
-# la API. No hace falta capturarlos manualmente.
+# Store codes (channel "key") confirmed from a real API response.
+# No need to capture them manually via DevTools.
 STORES = {
     "Escazú": "6402",
     "Santa Ana": "6407",
     "Zapote": "6401",
     "Tres Ríos": "6406",
-    "Cartago": "6409"
+    "Cartago": "6409",
+    "Llorente": "6404",
 }
 
-# Cualquier channelId válido sirve como "metadata" del request; la API
-# igual devuelve la disponibilidad de las ~60 tiendas. Usamos el de Escazú.
+# Any valid channelId works as request "metadata"; the API returns
+# availability for all ~60 stores regardless. We use Escazú's.
 ANY_CHANNEL_ID = "bafd6a6d-a619-4a39-bf47-fa4e1bf09770"
 
 HEADERS = {
@@ -112,17 +114,17 @@ def fetch_product_data() -> dict:
     elapsed = time.monotonic() - start
 
     logger.debug(
-        "← Status: %s | Tiempo: %.2fs | Response headers: %s",
+        "← Status: %s | Time: %.2fs | Response headers: %s",
         resp.status_code,
         elapsed,
         dict(resp.headers),
     )
 
-    # Guarda la respuesta cruda completa en un archivo aparte, por si hay
-    # que inspeccionarla con calma (uno por corrida, con timestamp).
+    # Save the full raw response to a separate file for later inspection
+    # (one per run, timestamped).
     dump_path = LOG_DIR / f"response_{time.strftime('%Y%m%d_%H%M%S')}.json"
     dump_path.write_text(resp.text, encoding="utf-8")
-    logger.debug("← Respuesta guardada en: %s", dump_path)
+    logger.debug("← Response saved to: %s", dump_path)
 
     resp.raise_for_status()
     return resp.json()
@@ -130,15 +132,15 @@ def fetch_product_data() -> dict:
 
 def get_channel_availability(data: dict) -> dict:
     """
-    Devuelve {channel_key: {"isOnStock": bool, "availableQuantity": int}}
-    a partir de la respuesta completa de la API.
+    Returns {channel_key: {"isOnStock": bool, "availableQuantity": int}}
+    from the full API response.
     """
     try:
         results = data["data"]["products"]["results"]
         variant = results[0]["masterData"]["current"]["masterVariant"]
         channels = variant["availability"]["channels"]["results"]
     except (KeyError, IndexError, TypeError) as e:
-        raise ValueError(f"Estructura de respuesta inesperada: {e}")
+        raise ValueError(f"Unexpected response structure: {e}")
 
     by_key = {}
     for entry in channels:
@@ -156,7 +158,7 @@ def send_email(subject: str, body: str):
     password = os.environ.get("GMAIL_APP_PASSWORD")
     to_addr = os.environ.get("EMAIL_TO")
     if not (user and password and to_addr):
-        logger.warning("Faltan variables de email, se omite el envío.")
+        logger.warning("Missing email variables, skipping email.")
         return
     msg = MIMEText(body)
     msg["Subject"] = subject
@@ -165,30 +167,31 @@ def send_email(subject: str, body: str):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(user, password)
         server.sendmail(user, [to_addr], msg.as_string())
-    logger.info("📧 Email enviado.")
+    logger.info("📧 Email sent.")
 
 
 def send_telegram(text: str):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not (token and chat_id):
-        logger.warning("Faltan variables de Telegram, se omite el mensaje.")
+        logger.warning("Missing Telegram variables, skipping message.")
         return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     resp = requests.post(
         url, data={"chat_id": chat_id, "text": text}, timeout=20
     )
     if resp.status_code >= 300:
-        logger.error("Error enviando Telegram: %s %s", resp.status_code, resp.text)
+        logger.error("Error sending Telegram message: %s %s",
+                     resp.status_code, resp.text)
     else:
-        logger.info("📲 Telegram enviado.")
+        logger.info("📲 Telegram message sent.")
 
 
 def notify(available_stores: list):
-    subject = "🧀 ¡Queso cottage disponible en PriceSmart!"
+    subject = "🧀 Cottage cheese is available at PriceSmart!"
     stores_txt = ", ".join(available_stores)
     body = (
-        f"El queso cottage Breakstone's (SKU {SKU}) está disponible en: "
+        f"Breakstone's cottage cheese (SKU {SKU}) is available at: "
         f"{stores_txt}.\n\n{PRODUCT_URL}"
     )
     send_email(subject, body)
@@ -197,18 +200,19 @@ def notify(available_stores: list):
 
 def main():
     logger.info("=" * 60)
-    logger.info("Iniciando chequeo de stock — %s", time.strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info("Starting stock check — %s",
+                time.strftime("%Y-%m-%d %H:%M:%S"))
     try:
         data = fetch_product_data()
     except requests.RequestException as e:
-        logger.error("Error consultando la API: %s", e)
+        logger.error("Error calling the API: %s", e)
         return
 
     try:
         by_key = get_channel_availability(data)
     except ValueError as e:
         logger.error(str(e))
-        logger.debug("JSON crudo (primeros 4000 caracteres):")
+        logger.debug("Raw JSON (first 4000 characters):")
         logger.debug(json.dumps(data, indent=2, ensure_ascii=False)[:4000])
         return
 
@@ -217,22 +221,23 @@ def main():
     for store, key in STORES.items():
         info = by_key.get(key)
         if info is None:
-            logger.warning("No se encontró la tienda %s (key %s) en la respuesta.", store, key)
+            logger.warning(
+                "Store %s (key %s) not found in the response.", store, key)
             continue
 
         available = info["isOnStock"]
         qty = info["availableQuantity"]
-        status = f"✅ disponible ({qty} unid.)" if available else "❌ agotado"
+        status = f"✅ in stock ({qty} units)" if available else "❌ out of stock"
         logger.info("%s: %s", store, status)
 
         if available:
             stores_with_stock.append(store)
 
     if stores_with_stock:
-        logger.info("🔔 Notificando disponibilidad en: %s", stores_with_stock)
+        logger.info("🔔 Notifying about availability at: %s", stores_with_stock)
         notify(stores_with_stock)
     else:
-        logger.info("Nada disponible en esta corrida, no se notifica.")
+        logger.info("Nothing in stock this run, no notification sent.")
 
 
 if __name__ == "__main__":

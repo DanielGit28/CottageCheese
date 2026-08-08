@@ -1,163 +1,167 @@
-# Notificador de stock: queso cottage Breakstone's en PriceSmart CR
+# Stock notifier: Breakstone's cottage cheese at PriceSmart CR
 
-Revisa cada 2 horas si el producto está disponible en Escazú, Santa Ana,
-Zapote, Tres Ríos y Cartago, y te avisa por email (Gmail) y
-Telegram en cada corrida donde encuentre stock en alguna de esas tiendas.
+Checks once a day, at 8:00 am Costa Rica time, whether the product is
+available at Escazú, Santa Ana, Zapote, Tres Ríos, Cartago, and Llorente, 
+and notifies you by email (Gmail) and Telegram every time
+it finds stock at any of those stores.
 
-Con una sola llamada a la API basta: la respuesta trae la disponibilidad
-de las ~60 tiendas de PriceSmart en la región de una vez, así que el
-script simplemente filtra las tiendas que te interesan de esa respuesta.
+A single API call is enough: the response returns availability for all
+~60 PriceSmart stores in the region at once, so the script simply
+filters the stores you care about from that response.
 
-## Correrlo localmente (con logs)
+## Running it locally (with logs)
 
-El script ya trae logging integrado: en consola muestra un resumen, y
-en `logs/check_stock.log` queda el detalle completo de cada llamada a la
-API (payload enviado, status code, headers de respuesta, tiempo que
-tardó). Además guarda la respuesta cruda completa de cada corrida en
-`logs/response_<fecha>_<hora>.json`, por si quieres revisarla con calma.
+The script already has logging built in: the console shows a summary,
+and `logs/check_stock.log` keeps the full detail of every API call
+(payload sent, status code, response headers, how long it took). It
+also saves the complete raw response of every run to
+`logs/response_<date>_<time>.json`, in case you want to inspect it
+later.
 
-1. Clona el repo y entra a la carpeta:
+1. Clone the repo and enter the folder:
    ```bash
    git clone https://github.com/DanielGit28/CottageCheese.git
    cd CottageCheese
    ```
-2. Crea un entorno virtual e instala la dependencia:
+2. Create a virtual environment and install the dependency:
    ```bash
    python3 -m venv venv
-   source venv/bin/activate   # en Windows: venv\Scripts\activate
+   source venv/bin/activate   # on Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-3. Configura las variables de notificación. Hay dos formas (opcional —
-   si las omites, el script sigue corriendo y solo te avisa en
-   consola/log que se saltó el envío):
+3. Set up the notification variables. There are two ways (optional — if
+   you skip this, the script keeps running and just tells you in the
+   console/log that it skipped sending):
 
-   **Opción A — archivo `.env` (recomendada, no hay que repetirlo cada vez):**
+   **Option A — `.env` file (recommended, no need to repeat it every time):**
    ```bash
    cp .env.example .env
    ```
-   Abre `.env` con cualquier editor y reemplaza los valores de ejemplo
-   por los tuyos. El script lo carga automáticamente al arrancar.
-   `.env` ya está en `.gitignore`, así que nunca se sube al repo por
-   accidente.
+   Open `.env` with any editor and replace the example values with your
+   own. The script loads it automatically on startup. `.env` is already
+   in `.gitignore`, so it never gets pushed to the repo by accident.
 
-   **Opción B — exportarlas en la terminal (se pierden al cerrarla):**
+   **Option B — export them in the terminal (lost when you close it):**
    ```bash
-   export GMAIL_USER="tucorreo@gmail.com"
+   export GMAIL_USER="youremail@gmail.com"
    export GMAIL_APP_PASSWORD="xxxxxxxxxxxxxxxx"
-   export EMAIL_TO="tucorreo@gmail.com"
+   export EMAIL_TO="youremail@gmail.com"
    export TELEGRAM_BOT_TOKEN="123456789:AAExxxxx..."
    export TELEGRAM_CHAT_ID="970504617"
    ```
-   En Windows (PowerShell) es `$env:GMAIL_USER="..."` en vez de `export`.
-4. Corre el script:
+   On Windows (PowerShell) it's `$env:GMAIL_USER="..."` instead of `export`.
+4. Run the script:
    ```bash
    python3 check_stock.py
    ```
-5. Revisa el log detallado:
+5. Check the detailed log:
    ```bash
    cat logs/check_stock.log
    ```
-   O el JSON crudo de la última respuesta:
+   Or the raw JSON of the latest response:
    ```bash
    ls logs/
    cat logs/response_20260807_153000.json | python3 -m json.tool | less
    ```
 
-Si vas a dejarlo corriendo local en vez de en GitHub Actions, tendrías
-que programarlo tú mismo (ej. con `cron` en Mac/Linux, o el Programador
-de tareas en Windows) para que se ejecute cada 2 horas — GitHub Actions
-ya hace eso automáticamente, así que lo local es principalmente útil
-para probar y depurar.
+If you're going to keep it running locally instead of on GitHub Actions,
+you'd need to schedule it yourself (e.g. with `cron` on Mac/Linux, or
+Task Scheduler on Windows) so it runs once a day — GitHub Actions
+already does that automatically, so running it locally is mainly useful
+for testing and debugging.
 
-> **Nota:** la carpeta `logs/` está en `.gitignore` a propósito — no se
-> sube al repo. Cuando corre en GitHub Actions, esos archivos solo viven
-> dentro de esa ejecución puntual (los ves en la pestaña **Actions** →
-> esa corrida → el output de "Run stock check"); no se acumulan entre
-> corridas. Si quieres conservarlos entre corridas de Actions, se puede
-> subir la carpeta como "artifact" — avísame si quieres que lo agregue.
+> **Note:** the `logs/` folder is in `.gitignore` on purpose — it's not
+> pushed to the repo. When it runs on GitHub Actions, those files only
+> live within that specific run (you can see them in the **Actions**
+> tab → that run → the "Run stock check" output); they don't
+> accumulate across runs. If you want to keep them across Actions runs,
+> the folder could be uploaded as an "artifact" — let me know if you'd
+> like that added.
 
-## Desplegarlo en GitHub Actions (automático, gratis, en la nube)
+## Deploying it on GitHub Actions (automatic, free, in the cloud)
 
-## ⚠️ Antes de empezar
+## ⚠️ Before you start
 
-El sitio de PriceSmart tiene un `robots.txt` que **no permite acceso
-automatizado**. Esto no es algo técnico ilegal, pero sí puede ir contra sus
-Términos de Servicio, y si consultan muy seguido te pueden bloquear la IP
-(en este caso, la de los servidores de GitHub Actions). Por eso el
-workflow está configurado a cada 2 horas. Úsalo bajo tu propio criterio y
-no lo satures.
+PriceSmart's site has a `robots.txt` that **does not allow automated
+access**. This isn't illegal, but it may go against their Terms of
+Service, and if you query too often they might block the IP (in this
+case, GitHub Actions' servers). That's why the workflow is set to run
+once a day. Use it at your own discretion and don't overload it.
 
-## 1. Crea el repositorio
+## 1. Create the repository
 
-1. Crea un repo nuevo en GitHub (puede ser privado).
-2. Sube estos 2 archivos:
-   - `check_stock.py` → en la raíz del repo
-   - `check-cottage-cheese.yml` → dentro de la carpeta `.github/workflows/`
-   - (no subas `README.md` si no quieres, es solo para vos)
+1. Create a new GitHub repo (can be private).
+2. Upload these 2 files:
+   - `check_stock.py` → in the repo root
+   - `check-cottage-cheese.yml` → inside the `.github/workflows/` folder
+   - (you don't need to upload `README.md` if you don't want to, it's just for you)
 
-## 2. Configura los "Secrets" del repo
+## 2. Set up the repo's "Secrets"
 
-En GitHub: `Settings → Secrets and variables → Actions → New repository secret`.
-Crea estos:
+In GitHub: `Settings → Secrets and variables → Actions → New repository secret`.
+Create these:
 
-| Secret | Valor |
+| Secret | Value |
 |---|---|
-| `GMAIL_USER` | tu correo de Gmail |
-| `GMAIL_APP_PASSWORD` | ver paso 3 |
-| `EMAIL_TO` | correo donde quieres recibir el aviso |
-| `TELEGRAM_BOT_TOKEN` | ver paso 3.5 |
-| `TELEGRAM_CHAT_ID` | ver paso 3.5 |
+| `GMAIL_USER` | your Gmail address |
+| `GMAIL_APP_PASSWORD` | see step 3 |
+| `EMAIL_TO` | email address where you want to receive the alert |
+| `TELEGRAM_BOT_TOKEN` | see step 3.5 |
+| `TELEGRAM_CHAT_ID` | see step 3.5 |
 
-## 3. Crea un "App Password" de Gmail
+## 3. Create a Gmail "App Password"
 
-1. Activa verificación en 2 pasos en tu cuenta de Google, si no la tienes.
-2. Ve a https://myaccount.google.com/apppasswords
-3. Genera una contraseña de aplicación (16 caracteres) y úsala como
-   `GMAIL_APP_PASSWORD` (no tu contraseña normal).
+1. Turn on 2-step verification on your Google account, if you haven't already.
+2. Go to https://myaccount.google.com/apppasswords
+3. Generate an app password (16 characters) and use it as
+   `GMAIL_APP_PASSWORD` (not your regular password).
 
-## 3.5. Crea un bot de Telegram (opcional pero recomendado)
+## 3.5. Create a Telegram bot (optional but recommended)
 
-1. En Telegram, busca **@BotFather** y mándale `/newbot`. Ponle un nombre
-   y un username (tiene que terminar en "bot", ej. `cottage_stock_bot`).
-2. BotFather te va a dar un **token** como `123456789:AAExxxxx...` — ese
-   es tu `TELEGRAM_BOT_TOKEN`.
-3. Abre un chat con tu bot recién creado y mándale cualquier mensaje
-   (ej. "hola") para que te "conozca".
-4. Abre en el navegador:
-   `https://api.telegram.org/bot<TU_TOKEN>/getUpdates`
-   (reemplaza `<TU_TOKEN>` por el token real). Ahí vas a ver un JSON con
-   `"chat":{"id":123456789,...}` — ese número es tu `TELEGRAM_CHAT_ID`.
+1. In Telegram, search for **@BotFather** and send it `/newbot`. Give it
+   a name and a username (it has to end in "bot", e.g. `cottage_stock_bot`).
+2. BotFather will give you a **token** like `123456789:AAExxxxx...` —
+   that's your `TELEGRAM_BOT_TOKEN`.
+3. Open a chat with your newly created bot and send it any message
+   (e.g. "hi") so it "knows" you.
+4. Open in your browser:
+   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
+   (replace `<YOUR_TOKEN>` with the real token). You'll see a JSON with
+   `"chat":{"id":123456789,...}` — that number is your `TELEGRAM_CHAT_ID`.
 
-Si no quieres usar Telegram, puedes dejar esas 2 variables vacías: el
-script simplemente se salta el mensaje y solo manda email.
+If you don't want to use Telegram, you can leave those 2 variables
+empty: the script simply skips the message and only sends email.
 
-## 4. Prueba manual
+## 4. Manual test
 
-En GitHub → pestaña **Actions** → selecciona el workflow → **Run
-workflow** (botón manual, gracias a `workflow_dispatch`). Revisa el log:
+In GitHub → **Actions** tab → select the workflow → **Run workflow**
+(manual button, thanks to `workflow_dispatch`). Check the log:
 
-- Si ves `✅ disponible` o `❌ agotado` por cada tienda, todo funciona.
-- Si ves `❓ Estructura de respuesta inesperada`, algo cambió en la API de
-  PriceSmart; pégame el JSON crudo que aparece en el log y ajusto el
-  script.
+- If you see `✅ in stock` or `❌ out of stock` for each store, everything's working.
+- If you see `❓ Unexpected response structure`, something changed in
+  PriceSmart's API; paste me the raw JSON that shows up in the log and
+  I'll adjust the script.
 
-## Sobre las notificaciones repetidas
+## About repeated notifications
 
-El script ya no guarda estado entre corridas: te avisa **cada vez** que
-encuentra stock en alguna tienda, sin importar si ya te había avisado en
-la corrida anterior. Como el producto se agota rápido (1–2 días), esto
-es intencional — así te enteras en cada ventana de 2 horas mientras siga
-disponible, en vez de solo una vez al aparecer.
+The script no longer keeps state between runs: it notifies you **every
+time** it finds stock at any store, regardless of whether it already
+notified you on the previous run. Since the product tends to sell out
+quickly (1–2 days), this is intentional — so you find out on each daily
+run while it's still available, instead of only once when it first
+appears.
 
-Si en algún momento quieres volver al comportamiento de "solo avisar una
-vez por cambio de agotado a disponible", dime y te devuelvo la lógica de
-`state.json`.
+If at some point you'd rather go back to the "only notify once per
+change from out-of-stock to in-stock" behavior, let me know and I'll
+bring back the `state.json` logic.
 
-## Ajustar la frecuencia
+## Adjusting the frequency
 
-En `check-cottage-cheese.yml`, la línea `cron: "0 */2 * * *"` controla
-la frecuencia (formato cron, en UTC): corre al minuto 0 de cada 2 horas.
-Por ejemplo, cada hora sería `0 * * * *`, o cada 30 min `*/30 * * * *`.
-GitHub Actions free tier en repos privados tiene minutos limitados al
-mes, en repos públicos es ilimitado — otra razón para no bajar demasiado
-el intervalo.
+In `check-cottage-cheese.yml`, the line `cron: "0 14 * * *"` controls
+the frequency (cron format, always in **UTC**, not local time). Right
+now it runs once a day at 14:00 UTC, which is 8:00 am in Costa Rica
+(UTC-6, year-round, no daylight saving). For example, to run it at
+6:00 am CR time it would be `0 12 * * *`, or twice a day (8am and 6pm
+CR) it would be `cron: "0 0,14 * * *"`.
+GitHub Actions' free tier has limited monthly minutes on private repos;
+on public repos it's unlimited.
