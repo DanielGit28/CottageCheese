@@ -1,6 +1,6 @@
 # Stock notifier: Breakstone's cottage cheese at PriceSmart Costa Rica
 
-Checks once a day, at 8:00 am Costa Rica time, whether the product is
+Checks once a day, at 8:00 am Costa Rica time (UTC), whether the product is
 available at Escazú, Santa Ana, Zapote, Tres Ríos, Cartago, and Llorente, 
 and notifies you by email (Gmail) and Telegram every time
 it finds stock at any of those stores.
